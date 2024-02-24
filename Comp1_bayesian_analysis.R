@@ -24,7 +24,7 @@ logit2prob <- function(logit){
 # my analyses of the comprehension data
 ## read in data
 setwd("G:/My Drive/Everything/Belgeler/RDirectory")
-b_compdat <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/comprehension_data_processedv3_pnoandagefixed.csv")
+b_compdat <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/comp1_data.csv")
 # Morpheme-level slice information will be required to map scenario numbers onto stimuli
 obj <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/elifdat.csv")
 

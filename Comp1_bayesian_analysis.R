@@ -25,6 +25,8 @@ logit2prob <- function(logit){
 ## read in data
 setwd("G:/My Drive/Everything/Belgeler/RDirectory")
 b_compdat <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/comprehension_data_processedv3_pnoandagefixed.csv")
+# Morpheme-level slice information will be required to map scenario numbers onto stimuli
+obj <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/elifdat.csv")
 
 ## processing
 
@@ -70,8 +72,7 @@ b_experimental_trials[-b_catch_indexes,26] <- "experimental"
 colnames(b_experimental_trials)[26]<- "trial_type"
 
 b_experimental_trials$scenario_no <- c(NA)
-# Morpheme-level slice information
-obj <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/elifdat.csv")
+
 obj <- arrange(obj, obj$sentence)
 objpr<-obj[-which(duplicated(obj$sentence)),] ## since every sentence has one signal associated, the 9 thirds are not needed, we only keep whatever was first from a given sentence, just to have a link to the signal. The gram role of the word that remain just depends on the sentence type and alphabetic, tells nothing theoretically.
 
@@ -131,7 +132,6 @@ contrasts(b_model.dat$question_type) <- contr.sum(2)
 
 b_model.dat$sentence_type <- as.factor(b_model.dat$sentence_type)
 contrasts(b_model.dat$sentence_type) <- contr.treatment(4)
-
 
 
 

@@ -1,14 +1,14 @@
 ## loading up necessary packages
 library(tidyverse)
-library(ggplot2)
 library(cowplot)
 library(lme4)
 library(lmerTest)
 library(gridExtra)
 library(logistf)
+library(bridgesampling)
 library(brms)
 library(bayesplot)
-library(bridgesampling)
+library(here)
 
 
 ## my little function that takes logits and returns probabilities
@@ -23,10 +23,10 @@ logit2prob <- function(logit){
 
 # my analyses of the comprehension data
 ## read in data
-setwd("G:/My Drive/Everything/Belgeler/RDirectory")
-b_compdat <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/comp1_data.csv")
+
+b_compdat <- read_csv(here("comp1_data.csv"))
 # Morpheme-level slice information will be required to map scenario numbers onto stimuli
-obj <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/elifdat.csv")
+obj <- read.csv(here("elifdat.csv"))
 
 ## processing
 
@@ -222,10 +222,10 @@ print(bf)
 ## DDM 
 
 # Formula of the model
-b_model.dat
+b_model.dat 
 
 ddm_model_formula <- bf(
-  response_rt | response_correct ~ 0 + wo,
+  response_rt | dec(response_correct) ~ 0 + wo,
   bs ~ 0 + wo, 
   ndt ~ 0 + wo, 
   bias ~ 0 + wo

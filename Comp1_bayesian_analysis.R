@@ -6,9 +6,17 @@ library(lme4)
 library(lmerTest)
 library(gridExtra)
 library(logistf)
-library(brms)
-library(bayesplot)
 library(bridgesampling)
+library(brms)
+library(here)
+library(cmdstanr)
+library(bayesplot)
+
+setwd("G:/My Drive/Everything/Belgeler/RDirectory")
+
+#install.packages("cmdstanr", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+#cmdstanr::check_cmdstan_toolchain(fix = TRUE)
+#install_cmdstan()
 
 
 ## my little function that takes logits and returns probabilities
@@ -24,9 +32,7 @@ logit2prob <- function(logit){
 # my analyses of the comprehension data
 ## read in data
 setwd("G:/My Drive/Everything/Belgeler/RDirectory")
-b_compdat <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/comp1_data.csv")
-# Morpheme-level slice information will be required to map scenario numbers onto stimuli
-obj <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/elifdat.csv")
+b_compdat <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/comprehension_data_processedv3_pnoandagefixed.csv")
 
 ## processing
 
@@ -72,7 +78,8 @@ b_experimental_trials[-b_catch_indexes,26] <- "experimental"
 colnames(b_experimental_trials)[26]<- "trial_type"
 
 b_experimental_trials$scenario_no <- c(NA)
-
+# Morpheme-level slice information
+obj <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/elifdat.csv")
 obj <- arrange(obj, obj$sentence)
 objpr<-obj[-which(duplicated(obj$sentence)),] ## since every sentence has one signal associated, the 9 thirds are not needed, we only keep whatever was first from a given sentence, just to have a link to the signal. The gram role of the word that remain just depends on the sentence type and alphabetic, tells nothing theoretically.
 
@@ -135,98 +142,83 @@ contrasts(b_model.dat$sentence_type) <- contr.treatment(4)
 
 
 
-## Bayesian mixed-effects modeling using brms, LET'S GO -----------------
 
-## Weakly informative priors on the coefficients
-## Fitting accuracy data
+# DDM ---------------------------------------------------------------------
 
-b_model_1 <- brm(response_correct ~ wo + (1 | participant_id), data = b_model.dat, family = bernoulli(logit),
-                 set_prior("normal(0, 1)" ,class="b"),
-                 save_pars = save_pars(all = TRUE))
-
-summary(b_model_1)
-
-## credible intervals for the coefficients
-b_cis <- b_model_1 %>% posterior_interval(prob=c(.9))
-
-## posterior sampling
-
-posterior_results <- b_model_1 %>% posterior_samples()
-
-hist(posterior_results$b_wo1)
-
-summary(posterior_results)
-
-## Diagnose chains for estimated parameters
-mcmc_trace(b_model_1$fit)
-
-##Posterior Predictive Checks
-pp_check(b_model_1)
-
-## Residual Plots
-plot(b_model_1, resp = "response_rt", type = "resid")
-
-## Getting Bayes Factors
-
-b_model_null_acc <- brm(response_correct ~ 1 + (1 | participant_id), data = b_model.dat, family = bernoulli(logit),
-                 save_pars = save_pars(all = TRUE))
-
-bridge_null <- bridge_sampler(b_model_null_acc)
-bridge_chosen_model <- bridge_sampler(b_model_1)
-
-bf <- bayes_factor(bridge_chosen_model, bridge_null)
-print(bf)
-
-
-## Weakly informative priors on the coefficients
-## Fitting RT data
-
-b_model_1_RT <- brm(response_rt ~ wo + case, data = b_model.dat, family = "gamma",
-                 set_prior("normal(0, 200)" ,class="b"),
-                 save_pars = save_pars(all = TRUE))
-
-summary(b_model_1_RT)
-
-## credible intervals for the coefficients
-b_cis_RT <- b_model_1_RT %>% posterior_interval(prob=c(.9))
-
-## posterior sampling
-
-posterior_results_RT <- b_model_1_RT %>% posterior_samples()
-
-hist(posterior_results_RT$b_wo1)
-
-summary(posterior_results_RT)
-
-## Diagnose chains for estimated parameters
-mcmc_trace(b_model_1_RT$fit)
-
-##Posterior Predictive Checks
-pp_check(b_model_1_RT)
-
-## Residual Plots
-plot(b_model_1_RT, resp = "response_rt", type = "resid")
-
-## Getting Bayes Factors
-bridge_sampler(b_model_1_RT)
-
-b_model_null_RT <- brm(response_rt ~ wo , data = b_model.dat, family = "gamma",
-                        save_pars = save_pars(all = TRUE))
-
-bridge_null_RT <- bridge_sampler(b_model_null_RT)
-bridge_chosen_model_RT <- bridge_sampler(b_model_1_RT)
-
-bf <- bayes_factor( bridge_chosen_model_RT,bridge_null_RT)
-print(bf)
-
-## DDM 
 
 # Formula of the model
 b_model.dat
 
-ddm_model_formula <- bf(
-  response_rt | response_correct ~ 0 + wo,
+ddm_model_formula <- brms::bf(
+  response_rt | dec(response_correct) ~ 0 + wo,
   bs ~ 0 + wo, 
   ndt ~ 0 + wo, 
   bias ~ 0 + wo
-) 
+)
+
+#T ake a look at priors
+get_prior(ddm_model_formula, 
+          family = wiener(
+            link_bs = "identity", 
+            link_ndt = "identity", 
+            link_bias = "identity"), 
+          data = b_model.dat
+)
+
+# Set weakly informative priors
+prior <- c(
+  prior("normal(0, 1)", class = "b"), # work for categorical factor, add more for more fixed factors in the model
+  prior("normal(0, 5)", class = "b", dpar = "bs"),
+  prior("normal(0.2, 1)", class = "b", dpar = "ndt"),
+  prior("normal(0.5, 1)", class = "b", dpar = "bias")
+)
+
+# Print stan code to check specification
+make_stancode(
+  ddm_model_formula, 
+  family = wiener(
+    link_bs = "identity", 
+    link_ndt = "identity", 
+    link_bias = "identity"),
+  data = b_model.dat, 
+  prior = prior)
+
+# Generate temp data for possible init values
+tmp_dat <- make_standata(
+  formula = ddm_model_formula, 
+  family = wiener(
+    link_bs = "identity", 
+    link_ndt = "identity", 
+    link_bias = "identity"), 
+  data = b_model.dat, 
+  prior = prior)
+
+str(tmp_dat, 1, give.attr = FALSE)
+
+# Create init function to be used when fitting model
+initfun <- function() {
+  list(
+    b = rnorm(tmp_dat$K),
+    b_bs = runif(tmp_dat$K_bs, 0, 5), #1, 2
+    b_ndt = runif(tmp_dat$K_ndt, 0, 5), 
+    b_bias = rnorm(tmp_dat$K_bias, .5, 0.1) 
+  )
+}
+
+# Test model on single participant
+test <- brm(
+  formula = ddm_model_formula,
+  data = filter(b_model.dat, participant_id == 23),
+  prior = prior,
+  sample_prior = TRUE,
+  init = initfun,
+  family = wiener(
+    link_bs = "identity", 
+    link_ndt = "identity",
+    link_bias = "identity"),
+  backend = "cmdstanr", 
+  chains = 4, warmup = 10000, iter = 15000, thin = 10, 
+  cores = 4, 
+  control = list(adapt_delta = 0.95, max_treedepth = 1000000000), 
+  file = "G:/My Drive/Everything/Belgeler/RDirectory/comp1/ddms"
+)

@@ -32,7 +32,7 @@ logit2prob <- function(logit){
 # my analyses of the comprehension data
 ## read in data
 setwd("G:/My Drive/Everything/Belgeler/RDirectory")
-b_compdat <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/comprehension_data_processedv3_pnoandagefixed.csv")
+b_compdat <- read.csv("comp1_data.csv")
 
 ## processing
 
@@ -79,7 +79,7 @@ colnames(b_experimental_trials)[26]<- "trial_type"
 
 b_experimental_trials$scenario_no <- c(NA)
 # Morpheme-level slice information
-obj <- read.csv("G:/My Drive/Everything/Belgeler/RDirectory/elifdat.csv")
+obj <- read.csv("elifdat.csv")
 obj <- arrange(obj, obj$sentence)
 objpr<-obj[-which(duplicated(obj$sentence)),] ## since every sentence has one signal associated, the 9 thirds are not needed, we only keep whatever was first from a given sentence, just to have a link to the signal. The gram role of the word that remain just depends on the sentence type and alphabetic, tells nothing theoretically.
 
@@ -147,7 +147,8 @@ contrasts(b_model.dat$sentence_type) <- contr.treatment(4)
 
 
 # Formula of the model
-b_model.dat
+b_model.dat <- b_model.dat |> 
+  mutate(response_rt = log(response_rt))
 
 ddm_model_formula <- brms::bf(
   response_rt | dec(response_correct) ~ 0 + wo,
@@ -220,5 +221,5 @@ test <- brm(
   chains = 4, warmup = 10000, iter = 15000, thin = 10, 
   cores = 4, 
   control = list(adapt_delta = 0.95, max_treedepth = 1000000000), 
-  file = "G:/My Drive/Everything/Belgeler/RDirectory/comp1/ddms"
+  file = "ddms"
 )
